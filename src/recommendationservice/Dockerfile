@@ -12,15 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Define a default value so it's not empty if the builder fails to provide it
-ARG BUILDPLATFORM=linux/amd64
-
-FROM --platform=$BUILDPLATFORM python:3.14.7-alpine@sha256:05b2b8b732ecd268fee8727a369f936f022d1321b59befd13c30ede22769dcdc AS base
+FROM --platform=$BUILDPLATFORM python:3.12.8-alpine@sha256:54bec49592c8455de8d5983d984efff76b6417a6af9b5dcc8d0237bf6ad3bd20 AS base
 
 FROM base AS builder
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
 
 RUN apk update \
     && apk add --no-cache g++ linux-headers \
@@ -28,11 +22,13 @@ RUN apk update \
 
 # get packages
 COPY requirements.txt .
+RUN pip install --upgrade pip
+RUN pip install "setuptools==69.5.1" wheel
+RUN pip install --no-build-isolation grpcio==1.59.2
 RUN pip install -r requirements.txt
 
 FROM base
-
-ENV PYTHONDONTWRITEBYTECODE=1
+# Enable unbuffered logging
 ENV PYTHONUNBUFFERED=1
 
 RUN apk update \
@@ -43,13 +39,13 @@ RUN apk update \
 WORKDIR /recommendationservice
 
 # Grab packages from builder
-COPY --from=builder /usr/local/lib/python3.14/ /usr/local/lib/python3.14/
+COPY --from=builder /usr/local/lib/python3.12/ /usr/local/lib/python3.12/
 
 # Add the application
 COPY . .
 
 # set listen port
-ENV PORT="8080"
+ENV PORT "8080"
 EXPOSE 8080
 
 ENTRYPOINT ["python", "recommendation_server.py"]
